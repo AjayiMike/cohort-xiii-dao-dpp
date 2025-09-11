@@ -310,6 +310,66 @@ export const GOVERNANCE_TOKEN_ABI = [
 ];
 export const QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI = [
     {
+        inputs: [
+            {
+                internalType: "string",
+                name: "_description",
+                type: "string",
+            },
+            {
+                internalType: "address payable",
+                name: "_recipient",
+                type: "address",
+            },
+            {
+                internalType: "uint256",
+                name: "_amount",
+                type: "uint256",
+            },
+            {
+                internalType: "uint256",
+                name: "_duration",
+                type: "uint256",
+            },
+        ],
+        name: "createProposal",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
+                internalType: "address",
+                name: "_token",
+                type: "address",
+            },
+            {
+                internalType: "uint256",
+                name: "_quorum",
+                type: "uint256",
+            },
+        ],
+        stateMutability: "nonpayable",
+        type: "constructor",
+    },
+    {
+        inputs: [
+            {
+                internalType: "uint256",
+                name: "available",
+                type: "uint256",
+            },
+            {
+                internalType: "uint256",
+                name: "required",
+                type: "uint256",
+            },
+        ],
+        name: "InsufficientBalance",
+        type: "error",
+    },
+    {
         anonymous: false,
         inputs: [
             {
@@ -354,6 +414,19 @@ export const QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI = [
         type: "event",
     },
     {
+        inputs: [
+            {
+                internalType: "uint256",
+                name: "_proposalId",
+                type: "uint256",
+            },
+        ],
+        name: "executeProposal",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
         anonymous: false,
         inputs: [
             {
@@ -391,6 +464,19 @@ export const QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI = [
         type: "event",
     },
     {
+        inputs: [
+            {
+                internalType: "uint256",
+                name: "_proposalId",
+                type: "uint256",
+            },
+        ],
+        name: "vote",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
         anonymous: false,
         inputs: [
             {
@@ -402,18 +488,22 @@ export const QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI = [
             {
                 indexed: true,
                 internalType: "uint256",
-                name: "proposalId",
+                name: "weight",
                 type: "uint256",
             },
             {
-                indexed: false,
+                indexed: true,
                 internalType: "uint256",
-                name: "weight",
+                name: "proposalId",
                 type: "uint256",
             },
         ],
         name: "Voted",
         type: "event",
+    },
+    {
+        stateMutability: "payable",
+        type: "receive",
     },
     {
         inputs: [],
@@ -426,47 +516,6 @@ export const QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI = [
             },
         ],
         stateMutability: "view",
-        type: "function",
-    },
-    {
-        inputs: [
-            {
-                internalType: "string",
-                name: "_description",
-                type: "string",
-            },
-            {
-                internalType: "address payable",
-                name: "_recipient",
-                type: "address",
-            },
-            {
-                internalType: "uint256",
-                name: "_amount",
-                type: "uint256",
-            },
-            {
-                internalType: "uint256",
-                name: "_duration",
-                type: "uint256",
-            },
-        ],
-        name: "createProposal",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-    },
-    {
-        inputs: [
-            {
-                internalType: "uint256",
-                name: "_proposalId",
-                type: "uint256",
-            },
-        ],
-        name: "executeProposal",
-        outputs: [],
-        stateMutability: "nonpayable",
         type: "function",
     },
     {
@@ -576,21 +625,36 @@ export const QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI = [
         stateMutability: "view",
         type: "function",
     },
+];
+
+export const multicallAbi = [
     {
         inputs: [
             {
-                internalType: "uint256",
-                name: "_proposalId",
-                type: "uint256",
+                components: [
+                    {
+                        internalType: "address",
+                        name: "target",
+                        type: "address",
+                    },
+                    { internalType: "bytes", name: "callData", type: "bytes" },
+                ],
+                internalType: "struct Multicall.Call[]",
+                name: "calls",
+                type: "tuple[]",
             },
         ],
-        name: "vote",
-        outputs: [],
+        name: "aggregate",
+        outputs: [
+            { internalType: "uint256", name: "blockNumber", type: "uint256" },
+            { internalType: "bytes[]", name: "returnData", type: "bytes[]" },
+        ],
         stateMutability: "nonpayable",
         type: "function",
     },
-    {
-        stateMutability: "payable",
-        type: "receive",
-    },
 ];
+
+export const errorFragmensAbi = [
+    ...GOVERNANCE_TOKEN_ABI,
+    ...QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
+].filter((fr) => fr.type === "error");

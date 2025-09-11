@@ -1,18 +1,23 @@
 import React, { useCallback } from "react";
 import useChairPerson from "./useChairPerson";
 import { toast } from "sonner";
-import { isAddressEqual } from "viem";
+import { ContractFunctionExecutionError, isAddressEqual } from "viem";
 import {
     useAccount,
     usePublicClient,
     useWalletClient,
     useWriteContract,
 } from "wagmi";
-import { QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI } from "../config/ABI";
+import {
+    errorFragmensAbi,
+    QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
+} from "../config/ABI";
 import { useEthersSigner } from "./ethersAdapter";
-import { ethers } from "ethers";
+import { ethers, isError } from "ethers";
+import { governanceContractConfig } from "../config";
+import { ErrorDecoder } from "ethers-decode-error";
 
-const useCreateProposal = () => {
+export const useCreateProposal = () => {
     const { address } = useAccount();
     const chairPerson = useChairPerson();
     const walletClient = useWalletClient();
@@ -43,55 +48,82 @@ const useCreateProposal = () => {
                 return;
             }
 
-            const governanceContractBalance = await publicClient.getBalance({
-                address: import.meta.env
-                    .VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
-            });
+            // const governanceContractBalance = await publicClient.getBalance({
+            //     address: import.meta.env
+            //         .VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
+            // });
 
-            console.log(
-                "governanceContractBalance: ",
-                governanceContractBalance,
-                "amountInwei: ",
-                amountInwei
-            );
+            // console.log(
+            //     "governanceContractBalance: ",
+            //     governanceContractBalance,
+            //     "amountInwei: ",
+            //     amountInwei
+            // );
 
-            if (governanceContractBalance < amountInwei) {
-                toast.error("Insuffucient contract balance", {
-                    description:
-                        "The governance does not have enough ETH to fullfil this Proposal",
+            // if (governanceContractBalance < amountInwei) {
+            //     toast.error("Insuffucient contract balance", {
+            //         description:
+            //             "The governance does not have enough ETH to fullfil this Proposal",
+            //     });
+            //     return;
+            // }
+
+            try {
+                const simulationResult = await publicClient.simulateContract({
+                    account: address,
+                    address: import.meta.env
+                        .VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
+                    abi: QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
+                    functionName: "createProposal",
+                    args: [
+                        description,
+                        recipient,
+                        amountInwei,
+                        durationInSeconds,
+                    ],
                 });
-                return;
-            }
 
-            console.log({
-                description,
-                recipient,
-                amountInwei,
-                durationInSeconds,
-            });
+                console.log("simulationResult: ", simulationResult);
 
-            const txHash = await writeContractAsync({
-                address: import.meta.env
-                    .VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
-                abi: QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
-                functionName: "createProposal",
-                args: [description, recipient, amountInwei, durationInSeconds],
-            });
-
-            console.log("txHash: ", txHash);
-
-            const txReceipt = await publicClient.waitForTransactionReceipt({
-                hash: txHash,
-            });
-
-            if (txReceipt.status === "success") {
-                toast.success("Create proposal succeussfull", {
-                    description: "You have successfully created a proposal",
+                const txHash = await writeContractAsync({
+                    address: import.meta.env
+                        .VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
+                    abi: QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
+                    functionName: "createProposal",
+                    args: [
+                        description,
+                        recipient,
+                        amountInwei,
+                        durationInSeconds,
+                    ],
                 });
-            } else {
-                toast.error("Error creating proposal", {
-                    description: "Proposal creation failed",
+
+                console.log("txHash: ", txHash);
+
+                const txReceipt = await publicClient.waitForTransactionReceipt({
+                    hash: txHash,
                 });
+
+                if (txReceipt.status === "success") {
+                    toast.success("Create proposal succeussfull", {
+                        description: "You have successfully created a proposal",
+                    });
+                } else {
+                    toast.error("Error creating proposal", {
+                        description: "Proposal creation failed",
+                    });
+                }
+            } catch (error) {
+                if (error instanceof ContractFunctionExecutionError) {
+                    const cause = error.cause
+                        .walk()
+                        .message.split(":")[1]
+                        .split("\n")[1]
+                        .trim();
+                    toast.error(cause);
+                } else {
+                    toast.error("an unknown error occured");
+                }
             }
         },
         [address, chairPerson, publicClient, walletClient, writeContractAsync]
@@ -114,16 +146,16 @@ export const useCreateProposalEthers = () => {
                 });
                 return;
             }
-            if (
-                chairPerson &&
-                address.toLowerCase() !== chairPerson.toLowerCase()
-            ) {
-                toast.error("Unauthorized", {
-                    description:
-                        "This action is only available to the chairperson",
-                });
-                return;
-            }
+            // if (
+            //     chairPerson &&
+            //     address.toLowerCase() !== chairPerson.toLowerCase()
+            // ) {
+            //     toast.error("Unauthorized", {
+            //         description:
+            //             "This action is only available to the chairperson",
+            //     });
+            //     return;
+            // }
 
             if (durationInSeconds < 0) {
                 toast.error("invalid duration", {
@@ -133,45 +165,90 @@ export const useCreateProposalEthers = () => {
                 return;
             }
 
-            const governanceContractBalance = await signer.provider.getBalance(
-                import.meta.env.VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT
-            );
+            // const governanceContractBalance = await signer.provider.getBalance(
+            //     import.meta.env.VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT
+            // );
 
-            if (governanceContractBalance < amountInwei) {
-                toast.error("Insuffucient contract balance", {
-                    description:
-                        "The governance does not have enough ETH to fullfil this Proposal",
-                });
-                return;
-            }
+            // if (governanceContractBalance < amountInwei) {
+            //     toast.error("Insuffucient contract balance", {
+            //         description:
+            //             "The governance does not have enough ETH to fullfil this Proposal",
+            //     });
+            //     return;
+            // }
 
-            const governanceContract = new ethers.Contract(
-                import.meta.env.VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
-                QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
-                signer
-            );
+            try {
+                const governanceContract = new ethers.Contract(
+                    import.meta.env.VITE_QUADRATIC_GOVERNANCE_VOTING_CONTRACT,
+                    QUADRATIC_GOVERNANCE_VOTING_CONTRACT_ABI,
+                    signer
+                );
 
-            const txResponse = await governanceContract.createProposal(
-                description,
-                recipient,
-                amountInwei,
-                durationInSeconds
-            );
+                const simulation =
+                    await governanceContract.createProposal.staticCall(
+                        description,
+                        recipient,
+                        amountInwei,
+                        durationInSeconds
+                    );
 
-            console.log("txHash: ", txResponse.hash);
+                console.log("simulation: ", simulation);
 
-            const txReceipt = await txResponse.wait();
+                const txResponse = await governanceContract.createProposal(
+                    description,
+                    recipient,
+                    amountInwei,
+                    durationInSeconds
+                );
 
-            console.log("txReceipt: ", txReceipt);
+                console.log("txHash: ", txResponse.hash);
 
-            if (txReceipt.status) {
-                toast.success("Create proposal succeussfull", {
-                    description: "You have successfully created a proposal",
-                });
-            } else {
-                toast.error("Error creating proposal", {
-                    description: "Proposal creation failed",
-                });
+                const txReceipt = await txResponse.wait();
+
+                console.log("txReceipt: ", txReceipt);
+
+                if (txReceipt.status) {
+                    toast.success("Create proposal succeussfull", {
+                        description: "You have successfully created a proposal",
+                    });
+                } else {
+                    toast.error("Error creating proposal", {
+                        description: "Proposal creation failed",
+                    });
+                }
+            } catch (error) {
+                // console.log("error: ", error);
+                if (isError(error, "CALL_EXCEPTION")) {
+                    // console.log("err: ", error);
+
+                    // console.log("error: ", error.reason);
+                    // if (error.reason) {
+                    //     toast.error(error.reason);
+                    // }
+                    // if (error.data) {
+                    //     const decodedErrorData = ethers.Interface.from(
+                    //         governanceContractConfig.abi
+                    //     ).decodeErrorResult("InsufficientBalance", error.data);
+                    //     console.log(
+                    //         "decodedErrorData: ",
+                    //         JSON.parse(JSON.stringify(decodedErrorData))
+                    //     );
+                    // }
+                    console.log("abi: ", governanceContractConfig.abi);
+
+                    const errorDecoder = ErrorDecoder.create([
+                        errorFragmensAbi,
+                    ]);
+                    const decodedError = await errorDecoder.decode(error);
+                    console.log("decodedError: ", decodedError);
+                    const args = JSON.parse(JSON.stringify(decodedError.args));
+
+                    console.log("error args: ", args);
+
+                    toast.error(decodedError.reason);
+                } else {
+                    toast.error("an unknown error occured");
+                }
             }
         },
         [chairPerson, signer]

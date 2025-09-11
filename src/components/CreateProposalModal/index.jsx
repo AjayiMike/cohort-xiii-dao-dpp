@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useMemo, useState } from "react";
 import { DateTimePicker } from "../DateTimePicker";
 import {
-    /* useCreateProposal, */ useCreateProposalEthers,
+    /* useCreateProposal */ useCreateProposalEthers,
 } from "../../hooks/useCreateProposal";
 import { parseEther } from "viem";
 
